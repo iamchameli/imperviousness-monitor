@@ -15,16 +15,59 @@ const mapStore = useMapStore();
 onMounted(() => {
   if (!mapContainer.value) return;
 
+  // Create OSM-based style
+  const osmStyle = {
+    version: 8,
+    sources: {
+      "osm-tiles": {
+        type: "raster",
+        tiles: [
+          "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        ],
+        tileSize: 256,
+        attribution: "© OpenStreetMap contributors"
+      }
+    },
+    layers: [
+      {
+        id: "osm-layer",
+        type: "raster",
+        source: "osm-tiles",
+        minzoom: 0,
+        maxzoom: 19
+      }
+    ]
+  };
+
   mapInstance = new maplibregl.Map({
     container: mapContainer.value,
-    style: "https://demotiles.maplibre.org/style.json",
-    center: mapStore.center,
-    zoom: mapStore.zoom,
+    style: osmStyle,
+    center: config.defaultCenter,
+    zoom: config.defaultZoom,
     minZoom: config.minZoom,
     maxZoom: config.maxZoom
   });
 
+  // Constrain map to Netherlands bounds
+  mapInstance.setMaxBounds(config.netherlandsBounds);
+
   mapInstance.addControl(new maplibregl.NavigationControl(), "top-right");
+
+  // Add scale control
+  mapInstance.addControl(new maplibregl.ScaleControl({
+    maxWidth: 100,
+    unit: "metric"
+  }), "bottom-left");
+
+  mapInstance.on("load", () => {
+    // Store map instance reference for programmatic control
+    mapStore.setMapInstance(mapInstance);
+    // Update store with initial values
+    const center = mapInstance.getCenter();
+    mapStore.setCenter([center.lng, center.lat]);
+    mapStore.setZoom(mapInstance.getZoom());
+    mapStore.setBounds(mapInstance.getBounds().toArray().flat());
+  });
 
   mapInstance.on("moveend", () => {
     const center = mapInstance.getCenter();

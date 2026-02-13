@@ -3,6 +3,25 @@
     <h2 class="panel-title">Filters</h2>
     <div class="panel-body">
       <div class="field">
+        <label class="label">Province</label>
+        <select 
+          v-model="province" 
+          class="input"
+          :disabled="loadingProvinces"
+        >
+          <option value="">All Provinces</option>
+          <option 
+            v-for="prov in provinces" 
+            :key="prov.id" 
+            :value="prov.id"
+          >
+            {{ prov.name }}
+          </option>
+        </select>
+        <small v-if="loadingProvinces" class="hint">Loading provinces...</small>
+      </div>
+
+      <div class="field">
         <label class="label">Region type</label>
         <select v-model="regionType" class="input">
           <option value="">(none)</option>
@@ -27,10 +46,38 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { useDataStore } from "../../store/dataStore";
+import { useMapStore } from "../../store/mapStore";
+import { config } from "../../services/config";
 
 const dataStore = useDataStore();
+const mapStore = useMapStore();
+
+// Load provinces on mount
+onMounted(() => {
+  dataStore.fetchProvinces();
+});
+
+const provinces = computed(() => dataStore.provinces);
+const loadingProvinces = computed(() => dataStore.loading.provinces);
+
+const province = computed({
+  get: () => dataStore.filters.province || "",
+  set: (value) => {
+    dataStore.filters.province = value || null;
+    // Pan to selected province
+    if (value) {
+      const selectedProvince = provinces.value.find((p) => p.id === value);
+      if (selectedProvince && selectedProvince.center) {
+        mapStore.panToProvince(selectedProvince.center, 9);
+      }
+    } else {
+      // Reset to Netherlands center if "All Provinces" is selected
+      mapStore.panToProvince(config.defaultCenter, config.defaultZoom);
+    }
+  }
+});
 
 const regionType = computed({
   get: () => dataStore.filters.regionType || "",
@@ -83,6 +130,17 @@ const year = computed({
   border: 1px solid #d1d5db;
   padding: 0.35rem 0.5rem;
   font-size: 0.85rem;
+}
+
+.input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
 }
 </style>
 
